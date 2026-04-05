@@ -86,7 +86,7 @@ export const useRealtimeChat = ({
   contacts,
   seedMessages,
 }: UseRealtimeChatOptions) => {
-  const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
+  const [connectionPhase, setConnectionPhase] = useState<ConnectionState>('connecting');
   const [messagesByConversation, setMessagesByConversation] = useState<
     Record<string, ChatMessage[]>
   >(() => {
@@ -94,17 +94,19 @@ export const useRealtimeChat = ({
     return safeParse(window.localStorage.getItem(STORAGE_KEY)) ?? seedMessages ?? {};
   });
   const [typingByConversation, setTypingByConversation] = useState<TypingState>({});
-  const [presenceByUser, setPresenceByUser] = useState<PresenceState>(() => {
-    return contacts.reduce<PresenceState>((acc, contact) => {
-      acc[contact.id] = contact.status;
-      return acc;
-    }, {});
-  });
+  const [presenceOverrides, setPresenceOverrides] = useState<PresenceState>({});
   const socketRef = useRef<Socket | null>(null);
   const typingTimeouts = useRef<Record<string, number>>({});
   const loadedContacts = useRef<Set<string>>(new Set());
   const contactsRef = useRef<Contact[]>(contacts);
   const joinedConversations = useRef<Set<string>>(new Set());
+  const connectionState = currentUser.id ? connectionPhase : 'offline';
+  const presenceByUser = useMemo(() => {
+    return contacts.reduce<PresenceState>((acc, contact) => {
+      acc[contact.id] = presenceOverrides[contact.id] ?? contact.status;
+      return acc;
+    }, {});
+  }, [contacts, presenceOverrides]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -113,16 +115,6 @@ export const useRealtimeChat = ({
 
   useEffect(() => {
     contactsRef.current = contacts;
-
-    setPresenceByUser((prev) => {
-      const next = { ...prev };
-      contacts.forEach((contact) => {
-        if (!next[contact.id]) {
-          next[contact.id] = contact.status;
-        }
-      });
-      return next;
-    });
   }, [contacts]);
 
   const joinKnownConversations = useCallback(() => {
@@ -196,32 +188,30 @@ export const useRealtimeChat = ({
     socketRef.current = socket;
     joinedConversations.current.clear();
 
-    setConnectionState('connecting');
-
     socket.on('connect', () => {
-      setConnectionState('connected');
+      setConnectionPhase('connected');
       socket.emit('register-user', { userId: currentUser.id });
       joinKnownConversations();
     });
 
     socket.on('disconnect', () => {
-      setConnectionState('offline');
+      setConnectionPhase('offline');
     });
 
     socket.on('connect_error', (error) => {
       console.error('Socket connect_error:', error?.message ?? error);
-      setConnectionState('offline');
+      setConnectionPhase('offline');
     });
 
     socket.on('presence', (payload: { userId: string; status: PresenceStatus }) => {
-      setPresenceByUser((prev) => ({
+      setPresenceOverrides((prev) => ({
         ...prev,
         [payload.userId]: payload.status,
       }));
     });
 
     socket.on('presence-snapshot', (users: { userId: string; status: PresenceStatus }[]) => {
-      setPresenceByUser((prev) => {
+      setPresenceOverrides((prev) => {
         const next = { ...prev };
         users.forEach((user) => {
           next[user.userId] = user.status;

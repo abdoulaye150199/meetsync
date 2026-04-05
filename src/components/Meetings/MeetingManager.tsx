@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { io as createSocketClient, type Socket } from 'socket.io-client';
 import { meetingService } from '../../services/meetingService';
 import { apiService } from '../../services/api';
@@ -221,6 +221,10 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
       setToast('Transcription arrêtée');
     }
   };
+
+  const stopTranscriptionOnUnmount = useEffectEvent(() => {
+    stopTranscription({ updateMeetingState: false });
+  });
 
   const appendTranscriptEntry = useCallback(({
     meetingId,
@@ -554,7 +558,7 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
 
   useEffect(() => {
     return () => {
-      stopTranscription({ updateMeetingState: false });
+      stopTranscriptionOnUnmount();
     };
   }, []);
 

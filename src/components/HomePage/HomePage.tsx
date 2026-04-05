@@ -178,9 +178,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [currentUserState, setCurrentUserState] = useState<ChatUser | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(
-    null,
-  );
+  const [selectedUserIdState, setSelectedUserId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [activeSection, setActiveSection] = useState<'meetings' | 'chat' | 'tasks'>('meetings');
   const [plannerRequestId, setPlannerRequestId] = useState(0);
@@ -203,6 +201,13 @@ const HomePage = () => {
     () => contactsState.filter((contact) => contact.id !== currentUserState?.id),
     [contactsState, currentUserState?.id],
   );
+  const selectedUserId = useMemo(() => {
+    if (visibleContacts.length === 0) return null;
+    if (selectedUserIdState && visibleContacts.some((contact) => contact.id === selectedUserIdState)) {
+      return selectedUserIdState;
+    }
+    return visibleContacts[0].id;
+  }, [selectedUserIdState, visibleContacts]);
 
   useEffect(() => {
     let mounted = true;
@@ -321,20 +326,6 @@ const HomePage = () => {
   });
 
   const selectedContact = visibleContacts.find((contact) => contact.id === selectedUserId) ?? null;
-
-  useEffect(() => {
-    if (visibleContacts.length === 0) {
-      setSelectedUserId(null);
-      return;
-    }
-
-    setSelectedUserId((prev) => {
-      if (prev && visibleContacts.some((contact) => contact.id === prev)) {
-        return prev;
-      }
-      return visibleContacts[0].id;
-    });
-  }, [visibleContacts]);
 
   useEffect(() => {
     if (!selectedUserId) return;
