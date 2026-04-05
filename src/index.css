@@ -1,0 +1,193 @@
+/* Effet glass 3D pour les boutons sociaux */
+.glass-3d-btn {
+  background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.08) 100%);
+  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.18), 0 1.5px 0.5px 0 rgba(255,255,255,0.15) inset;
+  border: 1.5px solid rgba(255,255,255,0.22);
+  backdrop-filter: blur(8px) saturate(1.5);
+  -webkit-backdrop-filter: blur(8px) saturate(1.5);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.glass-3d-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(120deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 100%);
+  opacity: 0.7;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.glass-3d-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.12);
+}
+/* Jersey10 font loading removed to avoid 404/OTS parsing errors during development.
+   If you have the font files, restore the @font-face rules and place files in
+   src/assets/fonts/ with the expected names: Jersey10-Regular.woff2, Jersey10-Regular.woff
+*/
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white font-sans text-text-dark antialiased;
+  }
+}
+
+.page-transition {
+  animation: page-fade-slide 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+@keyframes page-fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Splash Page Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes phoneSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.8s ease-out;
+}
+
+.animate-phoneSlideUp {
+  animation: phoneSlideUp 0.8s ease-out 0.2s both;
+}
+
+.delay-1000 {
+  animation-delay: 1000ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition {
+    animation: none;
+  }
+  
+  .animate-fadeIn,
+  .animate-phoneSlideUp {
+    animation: none;
+  }
+}
+
+@supports (view-transition-name: none) {
+  .page-transition {
+    animation: none;
+  }
+
+  .view-transition-phone {
+    view-transition-name: phone-hand;
+  }
+
+  .view-transition-hand {
+    view-transition-name: hand-move;
+  }
+
+
+  ::view-transition-group(hand-move) {
+    animation-duration: 1100ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+
+  ::view-transition-old(hand-move),
+  ::view-transition-new(hand-move) {
+    animation-duration: 1100ms;
+  }
+
+
+  ::view-transition-old(hand-move) {
+    animation-name: hand-move-out;
+  }
+
+  ::view-transition-new(hand-move) {
+    animation-name: hand-move-in;
+  }
+
+@keyframes hand-move-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0.2;
+    transform: translateX(120px) scale(0.95);
+  }
+}
+
+@keyframes hand-move-in {
+  from {
+    opacity: 0.2;
+    transform: translateX(-120px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+}
+
+@keyframes phone-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.2;
+  }
+}
+
+@keyframes phone-fade-in {
+  from {
+    opacity: 0.2;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Hide scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
