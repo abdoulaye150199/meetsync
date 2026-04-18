@@ -11,6 +11,12 @@ import type {
 } from '../types/chat';
 
 const STORAGE_KEY = 'meetsync.chat.v2';
+const SOCKET_RELEASE_DELAY_MS = 1000;
+
+let sharedChatSocket: Socket | null = null;
+let sharedChatSocketUserId: string | null = null;
+let sharedChatSocketConsumers = 0;
+let sharedChatSocketReleaseTimer: number | null = null;
 
 export type ConnectionState = 'connecting' | 'connected' | 'offline';
 
@@ -72,6 +78,48 @@ const getSocketUrl = () => {
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
   return apiUrl.replace(/\/api\/?$/, '');
+};
+
+const createChatSocket = () =>
+  io(getSocketUrl(), {
+    path: '/socket.io',
+    transports: ['websocket'],
+    upgrade: false,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
+  });
+
+const acquireChatSocket = (userId: string) => {
+  if (sharedChatSocketReleaseTimer) {
+    window.clearTimeout(sharedChatSocketReleaseTimer);
+    sharedChatSocketReleaseTimer = null;
+  }
+
+  if (!sharedChatSocket || sharedChatSocketUserId !== userId) {
+    sharedChatSocket?.disconnect();
+    sharedChatSocket = createChatSocket();
+    sharedChatSocketUserId = userId;
+  }
+
+  sharedChatSocketConsumers += 1;
+  return sharedChatSocket;
+};
+
+const releaseChatSocket = (socket: Socket) => {
+  sharedChatSocketConsumers = Math.max(0, sharedChatSocketConsumers - 1);
+  if (sharedChatSocketConsumers > 0) return;
+
+  sharedChatSocketReleaseTimer = window.setTimeout(() => {
+    if (sharedChatSocketConsumers > 0 || sharedChatSocket !== socket) return;
+
+    socket.disconnect();
+    sharedChatSocket = null;
+    sharedChatSocketUserId = null;
+    sharedChatSocketReleaseTimer = null;
+  }, SOCKET_RELEASE_DELAY_MS);
 };
 
 const toContactConversationKey = (
@@ -174,17 +222,7 @@ export const useRealtimeChat = ({
   useEffect(() => {
     if (!currentUser.id) return;
 
-    const socket = io(getSocketUrl(), {
-      path: '/socket.io',
-      // Keep polling fallback when direct websocket upgrade is blocked.
-      transports: ['polling', 'websocket'],
-      upgrade: true,
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 500,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-    });
+    const socket = acquireChatSocket(currentUser.id);
     socketRef.current = socket;
     joinedConversations.current.clear();
 
@@ -303,7 +341,15 @@ export const useRealtimeChat = ({
     });
 
     return () => {
-      socket.disconnect();
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('connect_error');
+      socket.off('presence');
+      socket.off('presence-snapshot');
+      socket.off('chat-message');
+      socket.off('typing-direct');
+      socket.off('conversation-read');
+      releaseChatSocket(socket);
       socketRef.current = null;
     };
   }, [currentUser.id, joinKnownConversations]);

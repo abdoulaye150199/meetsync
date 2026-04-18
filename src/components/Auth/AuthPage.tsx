@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import ViewTransitionLink from '../ViewTransitionLink';
 import LoginForm from './LoginForm';
 import RegisterForm from './RegisterForm';
 import PhoneMockup from './PhoneMockup';
 
 const AuthPage = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [searchParams] = useSearchParams();
+  const [isLogin, setIsLogin] = useState(() => searchParams.get('mode') !== 'register');
 
   const toggleForm = () => {
     setIsLogin((prev) => !prev);

@@ -9,8 +9,8 @@ import ViewTransitionLink from '../ViewTransitionLink';
 
 const Header = () => {
   return (
-    <header className="sticky top-0 z-50" style={{ backgroundColor: '#01333D' }}>
-      <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4">
+    <header className="sticky top-0 z-50 h-[72px]" style={{ backgroundColor: '#01333D' }}>
+      <div className="mx-auto flex h-full max-w-[1200px] items-center justify-between px-6">
         <ViewTransitionLink
           to="/"
           className="font-logo text-2xl tracking-[2px] text-white transition hover:opacity-90"

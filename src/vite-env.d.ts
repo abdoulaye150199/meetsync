@@ -21,7 +21,7 @@ declare global {
   }
 
   interface GoogleTokenClient {
-    requestAccessToken: (options?: { prompt?: string }) => void;
+    requestAccessToken: (options?: { prompt?: GoogleOAuthPrompt }) => void;
   }
 
   interface GoogleTokenClientConfig {
@@ -29,6 +29,8 @@ declare global {
     scope: string;
     callback: (response: GoogleTokenResponse) => void;
   }
+
+  type GoogleOAuthPrompt = '' | 'consent' | 'select_account';
 
   interface GoogleAccountsOAuth2 {
     initTokenClient: (config: GoogleTokenClientConfig) => GoogleTokenClient;

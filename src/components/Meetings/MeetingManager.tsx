@@ -22,6 +22,21 @@ interface UtilisateurResponse {
 
 type CreateMeetingPayload = MeetingFormState & { invitedUserIds?: string[] };
 
+type FullscreenDocument = Document & {
+  webkitExitFullscreen?: () => Promise<void> | void;
+  webkitCancelFullScreen?: () => Promise<void> | void;
+  webkitFullscreenElement?: Element | null;
+  webkitCurrentFullScreenElement?: Element | null;
+  msExitFullscreen?: () => Promise<void> | void;
+  msFullscreenElement?: Element | null;
+};
+
+type FullscreenElement = HTMLDivElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  webkitRequestFullScreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const toSocketUrl = () => {
@@ -88,6 +103,69 @@ const getCurrentSpeaker = () => {
   return storedName.split('@')[0];
 };
 
+const getFullscreenElement = () => {
+  if (typeof document === 'undefined') return null;
+  const fullscreenDocument = document as FullscreenDocument;
+  return (
+    document.fullscreenElement ||
+    fullscreenDocument.webkitFullscreenElement ||
+    fullscreenDocument.webkitCurrentFullScreenElement ||
+    fullscreenDocument.msFullscreenElement ||
+    null
+  );
+};
+
+const requestElementFullscreen = async (element: HTMLDivElement) => {
+  const fullscreenElement = element as FullscreenElement;
+
+  if (element.requestFullscreen) {
+    await element.requestFullscreen();
+    return;
+  }
+
+  if (fullscreenElement.webkitRequestFullscreen) {
+    await fullscreenElement.webkitRequestFullscreen();
+    return;
+  }
+
+  if (fullscreenElement.webkitRequestFullScreen) {
+    await fullscreenElement.webkitRequestFullScreen();
+    return;
+  }
+
+  if (fullscreenElement.msRequestFullscreen) {
+    await fullscreenElement.msRequestFullscreen();
+    return;
+  }
+
+  throw new Error("Le plein écran n'est pas supporté sur cet appareil.");
+};
+
+const exitFullscreenMode = async () => {
+  if (typeof document === 'undefined') return;
+  const fullscreenDocument = document as FullscreenDocument;
+
+  if (document.exitFullscreen) {
+    await document.exitFullscreen();
+    return;
+  }
+
+  if (fullscreenDocument.webkitExitFullscreen) {
+    await fullscreenDocument.webkitExitFullscreen();
+    return;
+  }
+
+  if (fullscreenDocument.webkitCancelFullScreen) {
+    await fullscreenDocument.webkitCancelFullScreen();
+    return;
+  }
+
+  if (fullscreenDocument.msExitFullscreen) {
+    await fullscreenDocument.msExitFullscreen();
+    return;
+  }
+};
+
 const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(false);
@@ -102,7 +180,7 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
     invitedUserIds: [],
   });
   const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; nom?: string; email?: string }>>([]);
-  const [toast, setToast] = useState<string | null>(null);
+  const [, setToast] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [activeMeetingId, setActiveMeetingId] = useState<string | null>(null);
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
@@ -118,6 +196,7 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
   const transcriptionMeetingIdRef = useRef<string | null>(null);
   const liveMeetingSocketRef = useRef<Socket | null>(null);
   const remoteTranscriptResetTimerRef = useRef<number | null>(null);
+  const activeMeetingViewRef = useRef<HTMLDivElement | null>(null);
   const [remoteLiveTranscriptionMeetingId, setRemoteLiveTranscriptionMeetingId] = useState<string | null>(null);
   const [remoteLiveTranscriptionSpeaker, setRemoteLiveTranscriptionSpeaker] = useState<string | null>(null);
   const activeMeetingIdRef = useRef<string | null>(null);
@@ -151,19 +230,6 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
     };
   }, []);
 
-  useEffect(() => {
-    if (microphoneEnabled || !speechRecognitionEnabled) return;
-
-    setSpeechRecognitionEnabled(false);
-
-    const activeId = activeMeetingIdRef.current;
-    if (activeId && transcriptionMeetingIdRef.current !== activeId) {
-      setMeetings((prev) =>
-        prev.map((meeting) => (meeting.id === activeId ? { ...meeting, aiStatus: 'idle' } : meeting))
-      );
-    }
-  }, [microphoneEnabled, speechRecognitionEnabled]);
-
   const stopMediaStream = (stream: MediaStream | null) => {
     if (!stream) return;
     stream.getTracks().forEach((track) => track.stop());
@@ -179,10 +245,12 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
     meetingId,
     updateMeetingState = true,
     showToast = false,
+    nextAiStatus,
   }: {
     meetingId?: string | null;
     updateMeetingState?: boolean;
     showToast?: boolean;
+    nextAiStatus?: Meeting['aiStatus'];
   } = {}) => {
     const targetedMeetingId = meetingId ?? transcriptionMeetingIdRef.current;
 
@@ -214,12 +282,38 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
     if (updateMeetingState && targetedMeetingId) {
       const keepListeningWithBrowserStt =
         speechRecognitionEnabled && activeMeetingIdRef.current === targetedMeetingId;
-      setMeetingAiStatus(targetedMeetingId, keepListeningWithBrowserStt ? 'listening' : 'idle');
+      setMeetingAiStatus(
+        targetedMeetingId,
+        nextAiStatus ?? (keepListeningWithBrowserStt ? 'listening' : 'idle'),
+      );
     }
 
     if (showToast) {
       setToast('Transcription arrêtée');
     }
+  };
+
+  const activateBrowserSpeechFallback = (meetingId: string, message?: string) => {
+    setSpeechRecognitionEnabled(true);
+    stopTranscription({
+      meetingId,
+      updateMeetingState: true,
+      nextAiStatus: 'listening',
+    });
+
+    const normalizedMessage = (message || '').trim();
+    const suffix = 'Speech-to-Text navigateur activé.';
+
+    if (!normalizedMessage) {
+      setToast(`Transcription IA indisponible. ${suffix}`);
+      return;
+    }
+
+    setToast(
+      /[.!?]$/.test(normalizedMessage)
+        ? `${normalizedMessage} ${suffix}`
+        : `${normalizedMessage}. ${suffix}`,
+    );
   };
 
   const stopTranscriptionOnUnmount = useEffectEvent(() => {
@@ -274,7 +368,7 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
   }, []);
 
   const handleSpeechTranscript = useCallback((text: string, isFinal: boolean) => {
-    if (!isFinal || !microphoneEnabled) return;
+    if (!isFinal) return;
     const meetingId = activeMeetingIdRef.current;
     if (!meetingId) return;
 
@@ -284,7 +378,7 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
       text,
       timestamp: new Date().toISOString(),
     });
-  }, [appendTranscriptEntry, microphoneEnabled]);
+  }, [appendTranscriptEntry]);
 
   useEffect(() => {
     if (!activeMeetingId) {
@@ -302,8 +396,8 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
 
     const socket = createSocketClient(toRealtimeSocketBaseUrl(), {
       path: '/socket.io',
-      transports: ['polling', 'websocket'],
-      upgrade: true,
+      transports: ['websocket'],
+      upgrade: false,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 500,
@@ -372,6 +466,27 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
     if (!browserSpeechError) return;
     setToast(browserSpeechError);
   }, [browserSpeechError]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const syncFullscreenState = () => {
+      const fullscreenElement = getFullscreenElement();
+      setIsFullscreen(Boolean(fullscreenElement && fullscreenElement === activeMeetingViewRef.current));
+    };
+
+    syncFullscreenState();
+
+    document.addEventListener('fullscreenchange', syncFullscreenState);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenState);
+    document.addEventListener('msfullscreenchange', syncFullscreenState);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreenState);
+      document.removeEventListener('webkitfullscreenchange', syncFullscreenState);
+      document.removeEventListener('msfullscreenchange', syncFullscreenState);
+    };
+  }, []);
 
   const ensureMicrophoneReady = async () => {
     if (microphoneStream && microphoneStream.getAudioTracks().some((track) => track.readyState === 'live')) {
@@ -496,9 +611,9 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
 
         if (payload.type === 'error') {
           if (browserSpeechSupported) {
-            setSpeechRecognitionEnabled(true);
-            setToast('Transcription IA indisponible, Speech-to-Text navigateur activé');
+            activateBrowserSpeechFallback(meetingId, payload.message);
           } else {
+            stopTranscription({ meetingId, updateMeetingState: true });
             setToast(payload.message || 'Erreur de transcription');
           }
           return;
@@ -518,6 +633,15 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
     };
 
     socket.onerror = () => {
+      if (browserSpeechSupported) {
+        activateBrowserSpeechFallback(
+          meetingId,
+          'Connexion à la transcription IA interrompue',
+        );
+        return;
+      }
+
+      stopTranscription({ meetingId, updateMeetingState: true });
       setToast('Connexion transcription interrompue');
     };
 
@@ -545,6 +669,7 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
     setMicrophoneEnabled(false);
     setSpeechRecognitionEnabled(false);
     setIsListening(false);
+    setIsFullscreen(false);
     setScreenError(null);
   };
 
@@ -860,6 +985,35 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
     }
   };
 
+  const toggleFullscreen = async () => {
+    const meetingView = activeMeetingViewRef.current;
+
+    if (!meetingView) {
+      setToast("La vue réunion n'est pas disponible pour le plein écran");
+      return;
+    }
+
+    try {
+      const fullscreenElement = getFullscreenElement();
+      if (fullscreenElement === meetingView) {
+        await exitFullscreenMode();
+        return;
+      }
+
+      if (fullscreenElement) {
+        await exitFullscreenMode();
+      }
+
+      await requestElementFullscreen(meetingView);
+    } catch (error) {
+      setToast(
+        error instanceof Error
+          ? error.message
+          : "Impossible d'activer le plein écran"
+      );
+    }
+  };
+
   if (activeMeeting) {
     const isLocalTranscriptionActive =
       transcriptionMeetingIdRef.current === activeMeeting.id &&
@@ -878,6 +1032,7 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <ActiveMeetingView
+          ref={activeMeetingViewRef}
           activeMeeting={activeMeeting}
           screenStream={screenStream}
           cameraStream={cameraStream}
@@ -911,11 +1066,6 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
               setToast('Speech-to-Text navigateur indisponible, transcription IA activée');
               return;
             }
-            if (!speechRecognitionEnabled && !microphoneEnabled) {
-              setToast("Activez d'abord le microphone");
-              return;
-            }
-
             setSpeechRecognitionEnabled((prev) => {
               const next = !prev;
               if (next) {
@@ -1015,7 +1165,9 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
             }
           }}
           onEndMeeting={handleEndMeeting}
-          onToggleFullscreen={() => setIsFullscreen((prev) => !prev)}
+          onToggleFullscreen={() => {
+            void toggleFullscreen();
+          }}
           onOpenMeetingLink={openMeetingLink}
           onCopyToClipboard={copyToClipboard}
           onReturnToMeetings={() => {
@@ -1023,7 +1175,6 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
             setActiveMeetingId(null);
           }}
         />
-        {toast && <div className="fixed bottom-6 right-6 bg-[#01333D] text-white text-xs font-semibold px-4 py-2 rounded-lg">{toast}</div>}
       </div>
     );
   }
@@ -1128,7 +1279,6 @@ const MeetingManager: React.FC<MeetingManagerProps> = ({ onCallStarted }) => {
         </Modal>
       )}
 
-      {toast && <div className="fixed bottom-6 right-6 bg-[#01333D] text-white text-xs font-semibold px-4 py-2 rounded-lg">{toast}</div>}
     </div>
   );
 };

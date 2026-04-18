@@ -20,7 +20,7 @@ Créer un fichier `.env` a partir de `.env.example`.
 Variables disponibles :
 
 - `VITE_API_URL` : URL de l'API backend
-- `VITE_GOOGLE_CLIENT_ID` : identifiant Google OAuth optionnel
+- `VITE_GOOGLE_CLIENT_ID` : identifiant Google OAuth pour la connexion et l'inscription Google
 
 ## Scripts
 
