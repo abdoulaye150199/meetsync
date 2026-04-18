@@ -110,7 +110,6 @@ export const ActiveMeetingView = forwardRef<HTMLDivElement, ActiveMeetingViewPro
   onToggleCamera,
   onStopScreenShare,
   onStartScreenShare,
-  onEndMeeting,
   onToggleFullscreen,
   onOpenMeetingLink,
   onCopyToClipboard,
@@ -473,8 +472,9 @@ export const ActiveMeetingView = forwardRef<HTMLDivElement, ActiveMeetingViewPro
           </button>
           <button
             type="button"
-            onClick={() => onEndMeeting(activeMeeting.id)}
+            onClick={onReturnToMeetings}
             className="w-11 h-11 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white transition"
+            title="Quitter le meet"
           >
             <FiPhoneOff size={18} />
           </button>
