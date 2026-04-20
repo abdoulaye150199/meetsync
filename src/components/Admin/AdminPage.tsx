@@ -20,6 +20,10 @@ import { useAuth } from '../../context/AuthContext'
 import { apiService } from '../../services/api'
 
 type AdminViewState = 'checking' | 'login' | 'forbidden' | 'ready'
+type UserRoleFilter = 'ALL' | 'ADMIN' | 'HOTE' | 'PARTICIPANT'
+
+const isUserRoleFilter = (value: string): value is UserRoleFilter =>
+  value === 'ALL' || value === 'ADMIN' || value === 'HOTE' || value === 'PARTICIPANT'
 
 interface AdminUser {
   id: string
@@ -96,7 +100,7 @@ const AdminPage = () => {
   const [users, setUsers] = useState<UserRecord[]>([])
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [roleFilter, setRoleFilter] = useState<'ALL' | 'ADMIN' | 'HOTE' | 'PARTICIPANT'>('ALL')
+  const [roleFilter, setRoleFilter] = useState<UserRoleFilter>('ALL')
   const [email, setEmail] = useState(defaultCredentials.email)
   const [password, setPassword] = useState(defaultCredentials.password)
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -581,7 +585,11 @@ const AdminPage = () => {
                         <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <select
                           value={roleFilter}
-                          onChange={(e) => setRoleFilter(e.target.value as any)}
+                          onChange={(e) => {
+                            if (isUserRoleFilter(e.target.value)) {
+                              setRoleFilter(e.target.value)
+                            }
+                          }}
                           className="appearance-none pl-10 pr-4 py-2 rounded-lg border border-gray-300 bg-white text-sm outline-none focus:border-[#01333D] focus:ring-2 focus:ring-[#01333D]/20"
                         >
                           <option value="ALL">Tous les rôles</option>
