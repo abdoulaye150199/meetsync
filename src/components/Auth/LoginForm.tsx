@@ -51,13 +51,14 @@ const LoginForm = ({ onToggle }: LoginFormProps) => {
       }
 
       const token = response.data?.data?.jeton;
+      const role = response.data?.data?.utilisateur?.role;
       if (!token) {
         setError('Réponse de connexion invalide.');
         return;
       }
 
       login(token);
-      navigate('/splash');
+      navigate(role === 'ADMIN' ? '/admin' : '/splash');
     } finally {
       setIsSubmitting(false);
     }

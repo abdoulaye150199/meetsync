@@ -4,6 +4,7 @@ import HeroSection from './components/HeroSection/HeroSection';
 import AuthPage from './components/Auth/AuthPage';
 import { SplashPage } from './components/SplashPage';
 import { HomePage } from './components/HomePage';
+import AdminPage from './components/Admin/AdminPage';
 
 function App() {
   const location = useLocation();
@@ -12,7 +13,8 @@ function App() {
   const showHeader = 
     location.pathname !== '/login' && 
     location.pathname !== '/splash' && 
-    location.pathname !== '/home';
+    location.pathname !== '/home' &&
+    location.pathname !== '/admin';
 
   return (
     <>
@@ -23,6 +25,7 @@ function App() {
           <Route path="/login" element={<AuthPage />} />
           <Route path="/splash" element={<SplashPage />} />
           <Route path="/home" element={<HomePage />} />
+          <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </div>
     </>
