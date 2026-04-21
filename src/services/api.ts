@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+import { getApiBaseUrl } from '../config/runtime'
+
+const API_BASE_URL = getApiBaseUrl()
 
 export interface ApiResponse<T> {
   data?: T

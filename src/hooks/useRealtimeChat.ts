@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { apiService } from '../services/api';
+import { getHttpOrigin } from '../config/runtime';
 import type {
   ChatMessage,
   ChatUser,
@@ -73,11 +74,7 @@ const toMessageStatus = (status: string | undefined): MessageStatus => {
 const buildConversationId = (a: string, b: string) => [a, b].sort().join(':');
 
 const getSocketUrl = () => {
-  const envUrl = import.meta.env.VITE_CHAT_SOCKET_URL;
-  if (envUrl) return envUrl;
-
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-  return apiUrl.replace(/\/api\/?$/, '');
+  return getHttpOrigin();
 };
 
 const createChatSocket = () =>

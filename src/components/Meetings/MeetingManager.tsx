@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useEffectEvent, useRef, useState } from 
 import { io as createSocketClient, type Socket } from 'socket.io-client';
 import { meetingService } from '../../services/meetingService';
 import { apiService } from '../../services/api';
+import { getHttpOrigin, getRealtimeSocketUrl } from '../../config/runtime';
 import type { Meeting, MeetingFormState, MeetingManagerProps } from './types';
 import Modal from './Modal';
 import {
@@ -37,23 +38,10 @@ type FullscreenElement = HTMLDivElement & {
   msRequestFullscreen?: () => Promise<void> | void;
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
-const toSocketUrl = () => {
-  const fallbackOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-  const parsedApiUrl = new URL(API_BASE_URL, fallbackOrigin);
-  const baseUrl = parsedApiUrl.href.replace(/\/api\/?$/, '/');
-  const parsedBaseUrl = new URL(baseUrl);
-  const protocol = parsedBaseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${parsedBaseUrl.host}/ws/transcription`;
-};
+const toSocketUrl = () => getRealtimeSocketUrl();
 
 const toRealtimeSocketBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_CHAT_SOCKET_URL as string | undefined;
-  if (envUrl) return envUrl;
-  const fallbackOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-  const parsedApiUrl = new URL(API_BASE_URL, fallbackOrigin);
-  return parsedApiUrl.href.replace(/\/api\/?$/, '');
+  return getHttpOrigin();
 };
 
 const formatTranscriptTime = (rawTimestamp?: string) => {
